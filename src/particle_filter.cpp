@@ -24,7 +24,27 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
+    
+    default_random_engine gen;
+    normal_distribution<double> ndx(x, std[0]);
+    normal_distribution<double> ndy(y, std[1]);
+    normal_distribution<double> ndt(theta, std[2]);
 
+    num_particles = 20;
+    weights = vector<double>(num_particles);
+    particles = vector<Particle>(num_particles);
+    
+    for (int i=0; i < num_particles; i++) {
+        particles[i].id = i;
+        particles[i].x = ndx(gen);
+        particles[i].y = ndy(gen);
+        particles[i].theta = ndt(gen);
+        particles[i].weight = 1.0;
+        weights[i] = 1.0;
+        cout << particles[i].x << ", " << particles[i].y << ", " << particles[i].theta << endl;
+    }
+
+    is_initialized = true;
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
@@ -32,7 +52,29 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	// NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
-
+    default_random_engine gen;
+    for (int i=0; i < num_particles; i++) {
+        
+        // Use motion model to predict the next state of the particles after delta_t
+        double theta = particles[i].theta;
+        if (fabs(yaw_rate) >= 0.001) {
+            particles[i].x += velocity/yaw_rate * (sin(theta + yaw_rate * delta_t)-sin(theta));
+            particles[i].y += velocity/yaw_rate * (cos(theta) - cos(theta + yaw_rate * delta_t));
+            particles[i].theta += yaw_rate*delta_t;
+        } else {
+            particles[i].x += velocity * delta_t * cos(theta);
+            particles[i].y += velocity * delta_t * sin(theta);
+            
+        }
+        
+        // Add gaussian noise to the predicted particle state
+        normal_distribution<double> ndx(particles[i].x, std_pos[0]);
+        normal_distribution<double> ndy(particles[i].y, std_pos[1]);
+        normal_distribution<double> ndt(particles[i].theta, std_pos[2]);
+        particles[i].x = ndx(gen);	
+        particles[i].y = ndy(gen);	
+        particles[i].theta = ndt(gen);
+    }
 }
 
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
@@ -40,7 +82,18 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 	//   observed measurement to this particular landmark.
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
-
+    
+    // Iterate over all observations and assign the closest observation to the predicted landmark
+    for (auto& obs : observations) {
+        double min_distance = 10000000.0;
+        for (auto pred : predicted) {
+            auto dist_val = dist(obs.x, obs.y, pred.x,pred.y);
+            if (dist_val < min_distance) {
+                obs.id = pred.id;
+                min_distance = dist_val;
+            }
+        }
+    }
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
