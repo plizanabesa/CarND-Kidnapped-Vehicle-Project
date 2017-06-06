@@ -24,6 +24,7 @@ using namespace std;
 
 void ParticleFilter::init(double x, double y, double theta, double std[]) {
     default_random_engine gen;
+    //std::default_random_engine (time(0));
     normal_distribution<double> nd_x(x, std[0]);
     normal_distribution<double> nd_y(y, std[1]);
     normal_distribution<double> nd_theta(theta, std[2]);
@@ -81,6 +82,7 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
             auto dist_val = dist(obs.x, obs.y, pred.x,pred.y);
             if (dist_val < min_distance) {
                 obs.id = pred.id;
+                //obs.id = j;
                 min_distance = dist_val;
             }
         }
@@ -143,7 +145,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
             
         } else {
             // If no nearby landmarks were found for that particle, then set weight to 0.
-            weights[i] = 0.0;
+            particles[i].weight = 0.0;
+            weights[i] = 0.0;      
         }
     }
 }
